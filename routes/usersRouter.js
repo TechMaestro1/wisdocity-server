@@ -99,6 +99,52 @@ router.post("/update", authMiddleWare, userController.update);
  *         description: User is not found or user password incorrect.
  */
 router.post("/login", userController.login);
+/**
+ * @swagger
+ * /api/users/forgot-password:
+ *   post:
+ *     description: Send a reset password link to the user's email.
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               email:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Reset password link sent successfully.
+ *       404:
+ *         description: User not found.
+ *       500:
+ *         description: Internal Server Error.
+ */
+router.post("/forgot-password", userController.forgotPassword);
+/**
+ * @swagger
+ * /api/users/reset-password:
+ *   post:
+ *     description: Reset user password after clicking on the reset link.
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               token:
+ *                 type: string
+ *               newPassword:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Password reset is successful.
+ *       404:
+ *         description: User not found.
+ *       500:
+ *         description: Internal Server Error.
+ */
+router.post("/reset-password", userController.resetPassword);
 
 /**
  * @swagger

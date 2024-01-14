@@ -4,6 +4,7 @@ const multer = require("multer");
 const jwt = require("jsonwebtoken");
 const uuid = require("uuid");
 const AWS = require("aws-sdk");
+const { sendEmail } = require("../services/emailService");
 
 const S3 = new AWS.S3({
   accessKeyId: process.env.ACCESS_KEY_S3,
@@ -54,7 +55,6 @@ class UserController {
     const {
       full_name,
       country,
-      avatar,
       role,
       id,
       category,
@@ -125,19 +125,22 @@ class UserController {
     }
 
     try {
-      const learnerUpdateObject = {};
-      if (purpose) learnerUpdateObject.purpose = purpose;
-      if (topics) learnerUpdateObject.topics = topics;
-      if (way_for_learning)
-        learnerUpdateObject.way_for_learning = way_for_learning;
-      if (goals) learnerUpdateObject.goals = goals;
-      if (Object.keys(learnerUpdateObject).length > 0) {
-        const [rowsUpdatedLearner, [learnerAfterUpdate]] = await Learner.update(
-          learnerUpdateObject,
-          { returning: true, where: { id } }
-        );
-        afterUpdateLearner = learnerAfterUpdate;
-        console.log("Learner updated:", learnerAfterUpdate);
+      if (user.role === "LEARNER") {
+        const learnerUpdateObject = {};
+        if (purpose) learnerUpdateObject.purpose = purpose;
+        if (topics) learnerUpdateObject.topics = topics;
+        if (way_for_learning)
+          learnerUpdateObject.way_for_learning = way_for_learning;
+        if (goals) learnerUpdateObject.goals = goals;
+        if (Object.keys(learnerUpdateObject).length > 0) {
+          const [rowsUpdatedLearner, [learnerAfterUpdate]] =
+            await Learner.update(learnerUpdateObject, {
+              returning: true,
+              where: { id },
+            });
+          afterUpdateLearner = learnerAfterUpdate;
+          console.log("Learner updated:", learnerAfterUpdate);
+        }
       }
     } catch (e) {
       console.log(e);
@@ -145,19 +148,21 @@ class UserController {
     }
 
     try {
-      const expertUpdateObject = {};
-      if (category) expertUpdateObject.category = category;
-      if (bio) expertUpdateObject.bio = bio;
-      if (link_of_media) expertUpdateObject.link_of_media = link_of_media;
-      if (aditional_service)
-        expertUpdateObject.aditional_service = aditional_service;
-      if (Object.keys(expertUpdateObject).length > 0) {
-        const [rowsUpdatedExpert, [expertAfterUpdate]] = await Expert.update(
-          expertUpdateObject,
-          { returning: true, where: { id } }
-        );
-        afterUpdateExpert = expertAfterUpdate;
-        console.log("expert updated:", expertAfterUpdate);
+      if (user.role === "EXPERT") {
+        const expertUpdateObject = {};
+        if (category) expertUpdateObject.category = category;
+        if (bio) expertUpdateObject.bio = bio;
+        if (link_of_media) expertUpdateObject.link_of_media = link_of_media;
+        if (aditional_service)
+          expertUpdateObject.aditional_service = aditional_service;
+        if (Object.keys(expertUpdateObject).length > 0) {
+          const [rowsUpdatedExpert, [expertAfterUpdate]] = await Expert.update(
+            expertUpdateObject,
+            { returning: true, where: { id } }
+          );
+          afterUpdateExpert = expertAfterUpdate;
+          console.log("expert updated:", expertAfterUpdate);
+        }
       }
     } catch (e) {
       console.log(e);
@@ -186,6 +191,67 @@ class UserController {
     const token = generateJWT(user.id, user.email, user.role);
     return res.json({ token });
   }
+  async forgotPassword(req, res, next) {
+    const { email } = req.body;
+
+    try {
+      // Перевірка, чи існує користувач з таким email в базі даних
+      const user = await User.findOne({ where: { email } });
+
+      if (!user) {
+        return next(ApiError.badRequest("User is not found"));
+      }
+
+      // Генерація токену
+      const token = jwt.sign(
+        { id: user.id, email: user.email, role: user.role },
+        process.env.SECRET_KEY,
+        { expiresIn: "1h" }
+      );
+
+      // Відправлення листа з токеном
+
+      await sendEmail(
+        email,
+        "Password Reset",
+        `<p>Click <a href="http://localhost:5000/api-docs/${token}">here</a> to reset your password.</p>`
+      );
+      console.log("Email sent successfully");
+
+      res
+        .status(200)
+        .json({ message: "Password reset email sent successfully" });
+    } catch (error) {
+      console.error("Error:", error);
+      res.status(500).json({ error: "Internal Server Error" });
+    }
+  }
+  async resetPassword(req, res, next) {
+    const { token, newPassword } = req.body;
+
+    try {
+      // Розкодування токену
+      const decodedToken = jwt.verify(token, process.env.SECRET_KEY);
+
+      // Захешування нового пароля
+      const hashedPassword = await bcrypt.hash(newPassword, 5);
+
+      // Зміна пароля в базі даних
+      const updatedUser = await User.update(
+        { password: hashedPassword },
+        { returning: true, where: { id: decodedToken.id } }
+      );
+
+      if (!updatedUser) {
+        return res.status(404).json({ error: "User not found" });
+      }
+
+      res.status(200).json({ message: "Password reset successfully" });
+    } catch (error) {
+      console.error("Error:", error);
+      res.status(500).json({ error: "Internal Server Error" });
+    }
+  }
   async check(req, res, next) {
     const { id, email, role } = req.user;
     console.log(req);
@@ -199,6 +265,17 @@ class UserController {
         user = await User.findOne({ where: { email } });
         userWithoutPassword = { ...user.dataValues, password: undefined };
         const learner = await Learner.findOne({ where: { id } });
+        try {
+          await sendEmail(
+            "yuriiyarmola1@gmail.com",
+            "Subject",
+            '<p>hello it message from zoho <a href="http://localhost:5000/api-docs">autentificate your profile</a></p>'
+          );
+          console.log("Email sent successfully");
+        } catch (error) {
+          console.error("Error sending email:", error);
+        }
+
         return res.json({ token, user: userWithoutPassword, learner });
       case "EXPERT":
         user = await User.findOne({ where: { email } });
