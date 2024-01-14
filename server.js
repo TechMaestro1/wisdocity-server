@@ -11,8 +11,8 @@ const models = require("./models/models");
 const router = require("./routes/index");
 const errorHandler = require("./middleware/ErrorHandlingMiddleware");
 
-const PORT = process.env.PORT || 5000;
-const HOST = process.env.HOST || "0.0.0.0";
+const PORT = process.env.PORT || 6000;
+// const HOST = process.env.HOST || "0.0.0.0";
 
 const app = express();
 
@@ -35,7 +35,7 @@ const start = async () => {
     await sequelize.authenticate();
     await sequelize.sync();
 
-    app.listen(PORT, HOST, () => {
+    app.listen(PORT, () => {
       console.log("Server start on port", PORT);
     });
   } catch (e) {
