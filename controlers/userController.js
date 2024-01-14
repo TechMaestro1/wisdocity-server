@@ -80,7 +80,7 @@ class UserController {
     let afterUpdateUser;
     let afterUpdateLearner;
 
-    const img = files?.img;
+    const img = files !== null && files !== undefined ? files.img : undefined;
     let avatarName = uuid.v4() + ".jpg";
     let fileUrl;
     try {
